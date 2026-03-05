@@ -326,6 +326,8 @@
 
     let currentObjectUrl = "";
     let busy = false;
+    const MAX_IMAGE_SIDE = 1920;
+    const IMAGE_LOAD_TIMEOUT_MS = 20000;
 
     function setStatus(text) {
       statusEl.textContent = text;
@@ -364,17 +366,97 @@
       serialInput.focus();
     }
 
-    function loadImageFromFile(file) {
+    function withTimeout(promise, timeoutMs, errorMessage) {
+      let timeoutId;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+      });
+      return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Unable to read selected image."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImageElement(src) {
       return new Promise((resolve, reject) => {
         const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.onload = () => resolve({ img, objectUrl });
-        img.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          reject(new Error("Unable to read selected image."));
-        };
-        img.src = objectUrl;
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Unable to decode selected image."));
+        img.src = src;
       });
+    }
+
+    async function loadImageFromFile(file) {
+      let objectUrl = "";
+      let imageSource = null;
+      let previewSrc = "";
+
+      if (typeof createImageBitmap === "function") {
+        try {
+          imageSource = await withTimeout(
+            createImageBitmap(file),
+            IMAGE_LOAD_TIMEOUT_MS,
+            "Photo decode timed out."
+          );
+          objectUrl = URL.createObjectURL(file);
+          previewSrc = objectUrl;
+          return { imageSource, objectUrl, previewSrc };
+        } catch (e) {
+          // Continue to HTMLImageElement fallback below.
+        }
+      }
+
+      try {
+        objectUrl = URL.createObjectURL(file);
+        const img = await withTimeout(
+          loadImageElement(objectUrl),
+          IMAGE_LOAD_TIMEOUT_MS,
+          "Photo load timed out."
+        );
+        imageSource = img;
+        previewSrc = objectUrl;
+        return { imageSource, objectUrl, previewSrc };
+      } catch (e) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = "";
+      }
+
+      const dataUrl = await withTimeout(
+        readFileAsDataUrl(file),
+        IMAGE_LOAD_TIMEOUT_MS,
+        "Photo read timed out."
+      );
+      const fallbackImg = await withTimeout(
+        loadImageElement(dataUrl),
+        IMAGE_LOAD_TIMEOUT_MS,
+        "Photo decode timed out."
+      );
+      return { imageSource: fallbackImg, objectUrl: "", previewSrc: dataUrl };
+    }
+
+    function drawImageToCanvas(imageSource, targetCanvas, targetCtx) {
+      const srcW = imageSource.width;
+      const srcH = imageSource.height;
+      const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(srcW, srcH));
+      const drawW = Math.max(1, Math.round(srcW * scale));
+      const drawH = Math.max(1, Math.round(srcH * scale));
+
+      targetCanvas.width = drawW;
+      targetCanvas.height = drawH;
+      targetCtx.clearRect(0, 0, drawW, drawH);
+      targetCtx.drawImage(imageSource, 0, 0, drawW, drawH);
+    }
+
+    function releaseImageSource(imageSource) {
+      if (imageSource && typeof imageSource.close === "function") {
+        imageSource.close();
+      }
     }
 
     function putIfFound(input, value) {
@@ -393,18 +475,17 @@
       clearSaveMessage();
 
       try {
-        const { img, objectUrl } = await loadImageFromFile(file);
+        const { imageSource, objectUrl, previewSrc } = await loadImageFromFile(file);
 
         if (currentObjectUrl) {
           URL.revokeObjectURL(currentObjectUrl);
         }
-        currentObjectUrl = objectUrl;
-        previewImage.src = objectUrl;
+        currentObjectUrl = objectUrl || "";
+        previewImage.src = previewSrc;
 
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+        setStatus("Preparing image...");
+        drawImageToCanvas(imageSource, canvas, ctx);
+        releaseImageSource(imageSource);
 
         setStatus("Scanning QR...");
         const qrData = readQRCodeFromCanvas(canvas);
@@ -421,9 +502,10 @@
 
         openFormStage();
       } catch (err) {
-        setStatus("Scan failed");
-        setSaveMessage(err.message || "Scan error", true);
+        const message = err && err.message ? err.message : "Scan error";
+        setSaveMessage(message, true);
         openStartStage();
+        setStatus(message);
       } finally {
         busy = false;
         scanBtn.disabled = false;
