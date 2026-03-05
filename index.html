@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sticker Reader</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+
+  <style>
+    :root {
+      --bg-1: #f4f8ff;
+      --bg-2: #e9f1ff;
+      --panel: #ffffff;
+      --ink: #0f223a;
+      --muted: #556981;
+      --line: #c9d8eb;
+      --accent: #1e6fd9;
+      --accent-dark: #1452a8;
+      --danger: #b42318;
+      --ok: #137333;
+      --shadow: 0 8px 20px rgba(22, 56, 94, .14);
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: "DM Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, #d5e6ff 0%, transparent 35%),
+        radial-gradient(circle at 90% 90%, #dfe9ff 0%, transparent 30%),
+        linear-gradient(125deg, var(--bg-1), var(--bg-2));
+      min-height: 100dvh;
+    }
+
+    .page {
+      margin: 0 auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, #ffffff, #eef5ff);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 12px 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hero h1 {
+      margin: 0;
+      color: var(--accent);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .status {
+      font-size: 13px;
+      font-weight: 700;
+      color: #27476a;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f4f8ff;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .start {
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .scan-btn {
+      min-height: 52px;
+      min-width: 190px;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-weight: 800;
+      font-size: 16px;
+      cursor: pointer;
+      color: white;
+      background: var(--accent);
+      box-shadow: 0 10px 22px rgba(30, 111, 217, .25);
+    }
+
+    .scan-btn:disabled {
+      opacity: .65;
+      cursor: not-allowed
+    }
+
+    .scan-btn:hover {
+      background: var(--accent-dark)
+    }
+
+    .help {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .preview-wrap {
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #eef4ff;
+    }
+
+    .preview {
+      width: 100%;
+      display: block;
+      max-height: 240px;
+      object-fit: contain;
+      background: #0f223a;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+
+    input {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: white;
+      padding: 10px 12px;
+      font-size: 15px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(30, 111, 217, .15);
+    }
+
+    .hint {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn:disabled {
+      opacity: .65;
+      cursor: not-allowed
+    }
+
+    .btn-primary {
+      border: none;
+      background: #28A745;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(.95)
+    }
+
+    .btn-secondary {
+      border: 1px solid var(--line);
+      background: #f4f8ff;
+      color: #123a67;
+    }
+
+    .message {
+      margin-top: 8px;
+      min-height: 18px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .ok {
+      color: var(--ok)
+    }
+
+    .err {
+      color: var(--danger)
+    }
+
+    @media (min-width:700px) {
+      .grid {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>Sticker Reader</h1>
+      <div id="status" class="status">Ready to scan</div>
+    </header>
+
+    <section id="startPanel" class="panel start">
+      <button id="scanBtn" class="scan-btn" type="button">Scan Label</button>
+      <p class="help">Tap scan, take/select one label photo, then validate the detected data.</p>
+      <input id="photoInput" class="hidden" type="file" accept="image/*" capture="environment">
+    </section>
+
+    <section id="formPanel" class="panel hidden">
+      <div class="preview-wrap">
+        <img id="previewImage" class="preview" alt="Selected label preview">
+      </div>
+
+      <div class="grid">
+        <div>
+          <label for="mfdInput">MFD</label>
+          <input id="mfdInput" type="text" placeholder="dd-mm-yyyy">
+        </div>
+        <div>
+          <label for="timeInput">TIME</label>
+          <input id="timeInput" type="text" placeholder="hh:mm AM/PM">
+        </div>
+        <div>
+          <label for="cuttingInput">CUTTING TIME</label>
+          <input id="cuttingInput" type="text" placeholder="hh:mm AM/PM">
+        </div>
+        <div>
+          <label for="batchInput">BATCH</label>
+          <input id="batchInput" type="text" placeholder="QR value">
+        </div>
+        <div>
+          <label for="serialInput">SERIAL</label>
+          <input id="serialInput" type="text" placeholder="Enter serial">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn" class="btn btn-primary" type="button">Save To Sheet</button>
+        <button id="rescanBtn" class="btn btn-secondary" type="button">Re-scan Label</button>
+      </div>
+      <div id="saveMessage" class="message"></div>
+    </section>
+
+    <canvas id="canvas" class="hidden"></canvas>
+  </main>
+
+  <script>
+    // Set your Google Apps Script Web App URL.
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQf0Y1dn-pND2oj9dGQyjmMa1qG0cR5vlBpHnsiRk9cSE1SxqktCJgitd_00Mpoj4Z6g/exec";
+
+    const statusEl = document.getElementById("status");
+    const startPanel = document.getElementById("startPanel");
+    const formPanel = document.getElementById("formPanel");
+
+    const scanBtn = document.getElementById("scanBtn");
+    const photoInput = document.getElementById("photoInput");
+    const previewImage = document.getElementById("previewImage");
+
+    const mfdInput = document.getElementById("mfdInput");
+    const timeInput = document.getElementById("timeInput");
+    const cuttingInput = document.getElementById("cuttingInput");
+    const batchInput = document.getElementById("batchInput");
+    const serialInput = document.getElementById("serialInput");
+
+    const saveBtn = document.getElementById("saveBtn");
+    const rescanBtn = document.getElementById("rescanBtn");
+    const saveMessageEl = document.getElementById("saveMessage");
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    let currentObjectUrl = "";
+    let busy = false;
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function setSaveMessage(text, isError) {
+      saveMessageEl.textContent = text || "";
+      saveMessageEl.className = "message " + (isError ? "err" : "ok");
+    }
+
+    function clearSaveMessage() {
+      saveMessageEl.textContent = "";
+      saveMessageEl.className = "message";
+    }
+
+    function resetFormFields() {
+      mfdInput.value = "";
+      timeInput.value = "";
+      cuttingInput.value = "";
+      batchInput.value = "";
+      serialInput.value = "";
+      clearSaveMessage();
+    }
+
+    function openStartStage() {
+      startPanel.classList.remove("hidden");
+      formPanel.classList.add("hidden");
+      setStatus("Ready to scan");
+      photoInput.value = "";
+    }
+
+    function openFormStage() {
+      startPanel.classList.add("hidden");
+      formPanel.classList.remove("hidden");
+      setStatus("Validate data and save");
+      serialInput.focus();
+    }
+
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => resolve({ img, objectUrl });
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error("Unable to read selected image."));
+        };
+        img.src = objectUrl;
+      });
+    }
+
+    function putIfFound(input, value) {
+      if (value && value !== "Not found" && value !== "QR not detected") {
+        input.value = value;
+      }
+    }
+
+    async function processSelectedFile(file) {
+      if (!file) return;
+      if (busy) return;
+
+      busy = true;
+      scanBtn.disabled = true;
+      setStatus("Loading photo...");
+      clearSaveMessage();
+
+      try {
+        const { img, objectUrl } = await loadImageFromFile(file);
+
+        if (currentObjectUrl) {
+          URL.revokeObjectURL(currentObjectUrl);
+        }
+        currentObjectUrl = objectUrl;
+        previewImage.src = objectUrl;
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        setStatus("Scanning QR...");
+        const qrData = readQRCodeFromCanvas(canvas);
+
+        setStatus("Reading text...");
+        const fields = await extractTextFields(canvas);
+
+        resetFormFields();
+        putIfFound(mfdInput, fields.mfd);
+        putIfFound(timeInput, fields.time);
+        putIfFound(cuttingInput, fields.cut);
+        putIfFound(serialInput, fields.serial);
+        putIfFound(batchInput, qrData);
+
+        openFormStage();
+      } catch (err) {
+        setStatus("Scan failed");
+        setSaveMessage(err.message || "Scan error", true);
+        openStartStage();
+      } finally {
+        busy = false;
+        scanBtn.disabled = false;
+      }
+    }
+
+    function validatePayload() {
+      const payload = {
+        mfd: mfdInput.value.trim(),
+        time: timeInput.value.trim(),
+        cuttingTime: cuttingInput.value.trim(),
+        batch: batchInput.value.trim(),
+        serial: serialInput.value.trim()
+      };
+
+      if (!payload.serial) throw new Error("SERIAL is required.");
+      if (!payload.batch) throw new Error("BATCH (QR data) is required.");
+
+      return payload;
+    }
+
+    async function saveToSheet() {
+      clearSaveMessage();
+
+      if (!SCRIPT_URL) {
+        setSaveMessage("Set SCRIPT_URL in Reader.html before saving.", true);
+        return;
+      }
+
+      let payload;
+      try {
+        payload = validatePayload();
+      } catch (err) {
+        setSaveMessage(err.message, true);
+        return;
+      }
+
+      saveBtn.disabled = true;
+      setStatus("Saving to sheet...");
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: new URLSearchParams(payload)
+        });
+
+        const raw = await response.text();
+        let data = { ok: response.ok };
+        try {
+          data = JSON.parse(raw);
+        } catch (e) {
+          data = { ok: response.ok, message: raw };
+        }
+
+        if (!response.ok || data.ok === false) {
+          throw new Error(data.error || "Unable to save row.");
+        }
+
+        setSaveMessage("Saved successfully.", false);
+        setStatus("Saved. You can re-scan next label.");
+      } catch (err) {
+        setStatus("Save failed");
+        setSaveMessage("Save failed: " + (err.message || "Unknown error"), true);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    function cropFrom(source, x, y, w, h) {
+      const sx = Math.max(0, Math.floor(x));
+      const sy = Math.max(0, Math.floor(y));
+      const sw = Math.max(1, Math.floor(w));
+      const sh = Math.max(1, Math.floor(h));
+
+      if (sx >= source.width || sy >= source.height) return null;
+
+      const safeW = Math.min(sw, source.width - sx);
+      const safeH = Math.min(sh, source.height - sy);
+      if (safeW < 2 || safeH < 2) return null;
+
+      const temp = document.createElement("canvas");
+      temp.width = safeW;
+      temp.height = safeH;
+      const tctx = temp.getContext("2d");
+      tctx.drawImage(source, sx, sy, safeW, safeH, 0, 0, safeW, safeH);
+      return temp;
+    }
+
+    function rotateCanvas(source, degrees) {
+      const rotated = document.createElement("canvas");
+      const rctx = rotated.getContext("2d");
+
+      if (degrees % 180 === 0) {
+        rotated.width = source.width;
+        rotated.height = source.height;
+      } else {
+        rotated.width = source.height;
+        rotated.height = source.width;
+      }
+
+      rctx.translate(rotated.width / 2, rotated.height / 2);
+      rctx.rotate((degrees * Math.PI) / 180);
+      rctx.drawImage(source, -source.width / 2, -source.height / 2);
+      return rotated;
+    }
+
+    function preprocessForOCR(source) {
+      const out = document.createElement("canvas");
+      out.width = source.width;
+      out.height = source.height;
+      const octx = out.getContext("2d");
+      octx.drawImage(source, 0, 0);
+
+      const image = octx.getImageData(0, 0, out.width, out.height);
+      const data = image.data;
+
+      let min = 255;
+      let max = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        if (lum < min) min = lum;
+        if (lum > max) max = lum;
+      }
+
+      const span = Math.max(1, max - min);
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const norm = ((lum - min) / span) * 255;
+        const boosted = Math.pow(norm / 255, 0.85) * 255;
+        data[i] = boosted;
+        data[i + 1] = boosted;
+        data[i + 2] = boosted;
+      }
+
+      octx.putImageData(image, 0, 0);
+      return out;
+    }
+
+    function preprocessForQR(source) {
+      const out = document.createElement("canvas");
+      out.width = source.width;
+      out.height = source.height;
+      const octx = out.getContext("2d");
+      octx.drawImage(source, 0, 0);
+
+      const image = octx.getImageData(0, 0, out.width, out.height);
+      const data = image.data;
+
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        sum += lum;
+        count++;
+      }
+
+      const avg = sum / Math.max(1, count);
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const bw = lum > avg ? 255 : 0;
+        data[i] = bw;
+        data[i + 1] = bw;
+        data[i + 2] = bw;
+      }
+
+      octx.putImageData(image, 0, 0);
+      return out;
+    }
+
+    function scaleCanvas(source, scale) {
+      const out = document.createElement("canvas");
+      out.width = Math.max(1, Math.round(source.width * scale));
+      out.height = Math.max(1, Math.round(source.height * scale));
+      const octx = out.getContext("2d");
+      octx.imageSmoothingEnabled = true;
+      octx.drawImage(source, 0, 0, out.width, out.height);
+      return out;
+    }
+
+    function tryDecodeQR(region) {
+      const qctx = region.getContext("2d");
+      const imageData = qctx.getImageData(0, 0, region.width, region.height);
+      const qr = jsQR(imageData.data, region.width, region.height, { inversionAttempts: "attemptBoth" });
+      return qr ? qr.data : null;
+    }
+
+    function readQRCodeFromCanvas(baseCanvas) {
+      const candidates = [];
+      candidates.push(baseCanvas);
+      candidates.push(scaleCanvas(baseCanvas, 2));
+      candidates.push(preprocessForQR(baseCanvas));
+
+      const regionDefs = [
+        [0, 0, 1, 1],
+        [0, 0, 0.6, 0.6],
+        [0.4, 0, 0.6, 0.6],
+        [0, 0.4, 0.6, 0.6],
+        [0.4, 0.4, 0.6, 0.6],
+        [0.2, 0.2, 0.6, 0.6],
+        [0.45, 0.3, 0.5, 0.6]
+      ];
+
+      for (const [x, y, w, h] of regionDefs) {
+        const crop = cropFrom(
+          baseCanvas,
+          Math.floor(baseCanvas.width * x),
+          Math.floor(baseCanvas.height * y),
+          Math.floor(baseCanvas.width * w),
+          Math.floor(baseCanvas.height * h)
+        );
+        if (!crop) continue;
+        candidates.push(crop);
+        const scaled = scaleCanvas(crop, 2.5);
+        candidates.push(scaled);
+        candidates.push(preprocessForQR(scaled));
+      }
+
+      for (const deg of [90, 180, 270]) {
+        const rotated = rotateCanvas(baseCanvas, deg);
+        candidates.push(rotated);
+        const rotatedScaled = scaleCanvas(rotated, 2);
+        candidates.push(rotatedScaled);
+        candidates.push(preprocessForQR(rotatedScaled));
+      }
+
+      for (const c of candidates) {
+        const data = tryDecodeQR(c);
+        if (data) return data;
+      }
+
+      return "QR not detected";
+    }
+
+    async function readText(region) {
+      const result = await Tesseract.recognize(region, "eng", {
+        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/.- ",
+        preserve_interword_spaces: "1"
+      });
+      return result.data.text.trim();
+    }
+
+    function normalizeDate(raw) {
+      if (!raw) return null;
+      const m = raw.replace(/[^\d\/.-]/g, "").match(/([0-3]?\d)[\/.-]([0-1]?\d)[\/.-](\d{2,4})/);
+      if (!m) return null;
+      const day = m[1].padStart(2, "0");
+      const month = m[2].padStart(2, "0");
+      const year = m[3].length === 2 ? `20${m[3]}` : m[3];
+      return `${day}-${month}-${year}`;
+    }
+
+    function normalizeTime(raw) {
+      if (!raw) return null;
+      const t = raw.toUpperCase().replace(/\./g, ":").replace(/\s+/g, " ").trim();
+      const m = t.match(/([0-2]?\d)\s*:\s*([0-5]\d)\s*(AM|PM)?/);
+      if (!m) return null;
+      const hh = m[1].padStart(2, "0");
+      const mm = m[2];
+      const mer = m[3] ? ` ${m[3]}` : "";
+      return `${hh}:${mm}${mer}`;
+    }
+
+    function normalizeOcrText(text) {
+      return (text || "")
+        .replace(/\r/g, "\n")
+        .replace(/[\u2018\u2019']/g, "")
+        .replace(/[|]/g, ":")
+        .replace(/[Oo](?=\d)/g, "0")
+        .replace(/\bCUT[Il1]NG\b/gi, "CUTTING")
+        .replace(/\bCUTT[Il1]NG\b/gi, "CUTTING")
+        .replace(/\bT[Il1]ME\b/gi, "TIME")
+        .replace(/\n+/g, "\n")
+        .trim();
+    }
+
+    function sanitizeSerial(raw) {
+      if (!raw) return null;
+      const digits = raw
+        .replace(/[Il|]/g, "1")
+        .replace(/[OoQq]/g, "0")
+        .replace(/\s+/g, "")
+        .replace(/[^\d]/g, "");
+      if (!digits || digits.length > 4) return null;
+      return digits;
+    }
+
+    function pickBestSerial(candidates) {
+      const valid = [...new Set(candidates
+        .map(sanitizeSerial)
+        .filter(Boolean))];
+      if (!valid.length) return "Not found";
+      valid.sort((a, b) => a.length - b.length || a.localeCompare(b));
+      return valid[0];
+    }
+
+    function parseStickerText(text) {
+      const clean = normalizeOcrText(text);
+      const lines = clean
+        .split("\n")
+        .map(x => x.trim())
+        .filter(Boolean);
+      const singleLine = lines.join(" ");
+
+      const mfdMatch = singleLine.match(/\bMFD\b[\s:.-]*([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{2,4})/i);
+      const cutMatch = singleLine.match(/\bCUTTING\s*TIME\b.*?([0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?)/i);
+      const tempForTime = singleLine.replace(/\bCUTTING\s*TIME\b/gi, "CT_REMOVED");
+      const timeMatch = tempForTime.match(/\bTIME\b[\s:.-]*([0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?)/i);
+
+      const allTimes = [...singleLine.matchAll(/([0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?)/ig)]
+        .map(x => normalizeTime(x[1]))
+        .filter(Boolean);
+
+      const mfd = normalizeDate(mfdMatch ? mfdMatch[1] : "") || normalizeDate(singleLine) || "Not found";
+      let time = normalizeTime(timeMatch ? timeMatch[1] : "");
+      if (!time) {
+        const timeLine = lines.find(line => /\bTIME\b/i.test(line) && !/\bCUTTING\b/i.test(line));
+        if (timeLine) {
+          const lineTime = timeLine.match(/([0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?)/i);
+          time = normalizeTime(lineTime ? lineTime[1] : "");
+        }
+      }
+      if (!time) {
+        time = allTimes.length > 0 ? allTimes[0] : "Not found";
+      }
+
+      let cut = normalizeTime(cutMatch ? cutMatch[1] : "");
+      if (!cut) {
+        const cutLineIdx = lines.findIndex(line => /\bCUTTING\s*TIME\b/i.test(line));
+        if (cutLineIdx >= 0) {
+          const nearby = [lines[cutLineIdx], lines[cutLineIdx + 1], lines[cutLineIdx + 2]]
+            .filter(Boolean)
+            .join(" ");
+          const nearbyMatch = nearby.match(/([0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?)/i);
+          cut = normalizeTime(nearbyMatch ? nearbyMatch[1] : "");
+        }
+      }
+      if (!cut) {
+        cut = allTimes.length > 1 ? allTimes[1] : "Not found";
+      }
+
+      const serialAfterCutCandidates = [];
+      const serialLineCandidates = [];
+      const serialStripCandidates = [];
+      const serialAfterCut = singleLine.match(/\bCUTTING\s*TIME\b\s+([0-9Il|OoQq]{1,4})\s/i);
+      if (serialAfterCut) serialAfterCutCandidates.push(serialAfterCut[1]);
+
+      const tempForSerial = singleLine
+        .replace(/\bMFD\b/gi, "")
+        .replace(/\bCUTTING\s*TIME\b/gi, "")
+        .replace(/\bTIME\b/gi, "")
+        .replace(/\b[0-3]?\d[\/.-][0-1]?\d[\/.-]\d{2,4}\b/g, "")
+        .replace(/\b[0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?\b/gi, "");
+      const serialFromStrip = tempForSerial.match(/\b([0-9Il|OoQq]{1,4})\b/g) || [];
+      serialStripCandidates.push(...serialFromStrip);
+
+      for (const line of lines) {
+        const compact = line.replace(/\s+/g, "");
+        if (/^[0-9Il|OoQq]{1,4}$/.test(compact)) {
+          serialLineCandidates.push(compact);
+        }
+      }
+
+      let serial = pickBestSerial(serialLineCandidates);
+      if (serial === "Not found") serial = pickBestSerial(serialAfterCutCandidates);
+      if (serial === "Not found") serial = pickBestSerial(serialStripCandidates);
+      return { mfd, time, cut, serial };
+    }
+
+    function parseScore(parsed) {
+      let score = 0;
+      if (parsed.mfd !== "Not found") score++;
+      if (parsed.time !== "Not found") score++;
+      if (parsed.cut !== "Not found") score++;
+      if (parsed.serial !== "Not found") score++;
+      return score;
+    }
+
+    async function readDigitsOnly(region) {
+      const result = await Tesseract.recognize(region, "eng", {
+        tessedit_char_whitelist: "0123456789Il|Oo",
+        tessedit_pageseg_mode: "7"
+      });
+      return result.data.text.trim();
+    }
+
+    async function extractSerialFromRegions(sourceCanvas) {
+      const w = sourceCanvas.width;
+      const h = sourceCanvas.height;
+
+      const regions = [
+        // focused serial-box regions above the QR on right side
+        { x: w * 0.72, y: h * 0.12, rw: w * 0.26, rh: h * 0.24 },
+        { x: w * 0.68, y: h * 0.08, rw: w * 0.30, rh: h * 0.30 },
+        { x: w * 0.74, y: h * 0.16, rw: w * 0.22, rh: h * 0.22 },
+        // wider fallbacks for shifted photos
+        { x: w * 0.60, y: 0, rw: w * 0.40, rh: h * 0.45 },
+        { x: w * 0.55, y: 0, rw: w * 0.45, rh: h * 0.50 }
+      ];
+
+      for (const r of regions) {
+        const crop = cropFrom(sourceCanvas, r.x, r.y, r.rw, r.rh);
+        if (!crop) continue;
+
+        const variants = [
+          preprocessForOCR(scaleCanvas(crop, 3)),
+          preprocessForOCR(scaleCanvas(crop, 4))
+        ];
+
+        for (const processed of variants) {
+          const digitText = await readDigitsOnly(processed);
+          const digits = sanitizeSerial(digitText);
+          if (digits) return digits;
+
+          const ocrText = await readText(processed);
+          const tokens = ocrText.match(/\b([0-9Il|OoQq]{1,4})\b/g) || [];
+          const parsed = pickBestSerial(tokens);
+          if (parsed !== "Not found") return parsed;
+        }
+      }
+      return null;
+    }
+
+    async function extractTextFields(sourceCanvas) {
+      let best = { mfd: "Not found", time: "Not found", cut: "Not found", serial: "Not found" };
+      let bestScore = -1;
+
+      const primaryCandidates = [sourceCanvas, preprocessForOCR(sourceCanvas)];
+      for (const candidate of primaryCandidates) {
+        const text = await readText(candidate);
+        const parsed = parseStickerText(text);
+        const score = parseScore(parsed);
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+        }
+        if (score === 4) return best;
+      }
+
+      for (const deg of [90, 180, 270]) {
+        const rotated = rotateCanvas(sourceCanvas, deg);
+        const text = await readText(preprocessForOCR(rotated));
+        const parsed = parseStickerText(text);
+        const score = parseScore(parsed);
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+        }
+        if (score === 4) return best;
+      }
+
+      // If serial is missing or suspiciously long, use dedicated region-based extraction
+      if (best.serial === "Not found" || best.serial.length > 4) {
+        const regionSerial = await extractSerialFromRegions(sourceCanvas);
+        if (regionSerial) {
+          best.serial = regionSerial;
+        }
+      }
+
+      return best;
+    }
+
+    scanBtn.addEventListener("click", () => {
+      clearSaveMessage();
+      photoInput.click();
+    });
+
+    photoInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      await processSelectedFile(file);
+    });
+
+    saveBtn.addEventListener("click", saveToSheet);
+
+    rescanBtn.addEventListener("click", () => {
+      resetFormFields();
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+        currentObjectUrl = "";
+      }
+      previewImage.src = "";
+      openStartStage();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+    });
+
+    openStartStage();
+  </script>
+</body>
+
+</html>
