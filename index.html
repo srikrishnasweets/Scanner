@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sticker Reader</title>
+  <title>Scanner</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -251,7 +251,7 @@
 <body>
   <main class="page">
     <header class="hero">
-      <h1>Sticker Reader</h1>
+      <h1>Scanner</h1>
       <div id="status" class="status">Ready to scan</div>
     </header>
 
@@ -476,9 +476,7 @@
       try {
         const { imageSource, objectUrl, previewSrc } = await loadImageFromFile(file);
 
-        if (currentObjectUrl) {
-          URL.revokeObjectURL(currentObjectUrl);
-        }
+        if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
         currentObjectUrl = objectUrl || "";
         previewImage.src = previewSrc;
 
@@ -488,9 +486,9 @@
 
         setStatus("Scanning QR...");
         const qrData = readQRCodeFromCanvas(canvas);
-        const qrBounds = detectQrBounds(canvas);
 
         setStatus("Reading text...");
+        const qrBounds = detectQrBounds(canvas);
         const fields = await extractTextFields(canvas, qrBounds);
 
         resetFormFields();
@@ -498,7 +496,7 @@
         putIfFound(timeInput, fields.time);
         putIfFound(cuttingInput, fields.cut);
         putIfFound(serialInput, fields.serial);
-        putIfFound(batchInput, qrData);
+        putIfFound(batchInput, qrData === "QR not detected" ? "" : qrData);
 
         openFormStage();
       } catch (err) {
@@ -749,49 +747,27 @@
     }
 
     function readQRCodeFromCanvas(baseCanvas) {
-      const candidates = [];
-      candidates.push(baseCanvas);
-      candidates.push(scaleCanvas(baseCanvas, 2));
-      candidates.push(preprocessForQR(baseCanvas));
-
-      const regionDefs = [
-        [0, 0, 1, 1],
-        [0, 0, 0.6, 0.6],
-        [0.4, 0, 0.6, 0.6],
-        [0, 0.4, 0.6, 0.6],
-        [0.4, 0.4, 0.6, 0.6],
-        [0.2, 0.2, 0.6, 0.6],
-        [0.45, 0.3, 0.5, 0.6]
+      const tryCandidates = [
+        () => tryDecodeQR(baseCanvas), // 1. Original
+        () => tryDecodeQR(scaleCanvas(baseCanvas, 1.5)), // 2. Slight upscale
+        () => tryDecodeQR(preprocessForQR(baseCanvas)),   // 3. Pre-processed B&W
+        () => { // 4. Center Crop
+          const crop = cropFrom(baseCanvas, baseCanvas.width * 0.25, baseCanvas.height * 0.25, baseCanvas.width * 0.5, baseCanvas.height * 0.5);
+          return crop ? tryDecodeQR(crop) : null;
+        },
+        () => { // 5. Rotations
+          for (const deg of [90, 180, 270]) {
+            const res = tryDecodeQR(rotateCanvas(baseCanvas, deg));
+            if (res) return res;
+          }
+          return null;
+        }
       ];
 
-      for (const [x, y, w, h] of regionDefs) {
-        const crop = cropFrom(
-          baseCanvas,
-          Math.floor(baseCanvas.width * x),
-          Math.floor(baseCanvas.height * y),
-          Math.floor(baseCanvas.width * w),
-          Math.floor(baseCanvas.height * h)
-        );
-        if (!crop) continue;
-        candidates.push(crop);
-        const scaled = scaleCanvas(crop, 2.5);
-        candidates.push(scaled);
-        candidates.push(preprocessForQR(scaled));
+      for (const fn of tryCandidates) {
+        const res = fn();
+        if (res) return res.data;
       }
-
-      for (const deg of [90, 180, 270]) {
-        const rotated = rotateCanvas(baseCanvas, deg);
-        candidates.push(rotated);
-        const rotatedScaled = scaleCanvas(rotated, 2);
-        candidates.push(rotatedScaled);
-        candidates.push(preprocessForQR(rotatedScaled));
-      }
-
-      for (const c of candidates) {
-        const qr = tryDecodeQR(c);
-        if (qr) return qr.data;
-      }
-
       return "QR not detected";
     }
 
