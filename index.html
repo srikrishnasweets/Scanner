@@ -290,7 +290,7 @@
       </div>
 
       <div class="actions">
-        <button id="saveBtn" class="btn btn-primary" type="button">Save To Sheet</button>
+        <button id="saveBtn" class="btn btn-primary" type="button">Start</button>
         <button id="rescanBtn" class="btn btn-secondary" type="button">Re-scan Label</button>
       </div>
       <div id="saveMessage" class="message"></div>
@@ -300,7 +300,6 @@
   </main>
 
   <script>
-    // Set your Google Apps Script Web App URL.
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyQf0Y1dn-pND2oj9dGQyjmMa1qG0cR5vlBpHnsiRk9cSE1SxqktCJgitd_00Mpoj4Z6g/exec";
 
     const statusEl = document.getElementById("status");
@@ -489,9 +488,10 @@
 
         setStatus("Scanning QR...");
         const qrData = readQRCodeFromCanvas(canvas);
+        const qrBounds = detectQrBounds(canvas);
 
         setStatus("Reading text...");
-        const fields = await extractTextFields(canvas);
+        const fields = await extractTextFields(canvas, qrBounds);
 
         resetFormFields();
         putIfFound(mfdInput, fields.mfd);
@@ -688,8 +688,64 @@
     function tryDecodeQR(region) {
       const qctx = region.getContext("2d");
       const imageData = qctx.getImageData(0, 0, region.width, region.height);
-      const qr = jsQR(imageData.data, region.width, region.height, { inversionAttempts: "attemptBoth" });
-      return qr ? qr.data : null;
+      return jsQR(imageData.data, region.width, region.height, { inversionAttempts: "attemptBoth" });
+    }
+
+    function getQrBounds(qr, offsetX = 0, offsetY = 0) {
+      if (!qr || !qr.location) return null;
+      const points = [
+        qr.location.topLeftCorner,
+        qr.location.topRightCorner,
+        qr.location.bottomRightCorner,
+        qr.location.bottomLeftCorner
+      ].filter(Boolean);
+      if (points.length < 4) return null;
+
+      const xs = points.map(p => p.x + offsetX);
+      const ys = points.map(p => p.y + offsetY);
+      const minX = Math.max(0, Math.floor(Math.min(...xs)));
+      const minY = Math.max(0, Math.floor(Math.min(...ys)));
+      const maxX = Math.ceil(Math.max(...xs));
+      const maxY = Math.ceil(Math.max(...ys));
+      return {
+        x: minX,
+        y: minY,
+        w: Math.max(1, maxX - minX),
+        h: Math.max(1, maxY - minY)
+      };
+    }
+
+    function detectQrBounds(baseCanvas) {
+      const scans = [
+        { canvas: baseCanvas, ox: 0, oy: 0 },
+        { canvas: preprocessForQR(baseCanvas), ox: 0, oy: 0 }
+      ];
+
+      const regionDefs = [
+        [0.42, 0.20, 0.58, 0.80],
+        [0.55, 0.25, 0.45, 0.75],
+        [0.62, 0.34, 0.38, 0.66],
+        [0.45, 0.35, 0.55, 0.65]
+      ];
+
+      for (const [x, y, w, h] of regionDefs) {
+        const sx = Math.floor(baseCanvas.width * x);
+        const sy = Math.floor(baseCanvas.height * y);
+        const sw = Math.floor(baseCanvas.width * w);
+        const sh = Math.floor(baseCanvas.height * h);
+        const crop = cropFrom(baseCanvas, sx, sy, sw, sh);
+        if (!crop) continue;
+        scans.push({ canvas: crop, ox: sx, oy: sy });
+        scans.push({ canvas: preprocessForQR(crop), ox: sx, oy: sy });
+      }
+
+      for (const candidate of scans) {
+        const qr = tryDecodeQR(candidate.canvas);
+        const bounds = getQrBounds(qr, candidate.ox, candidate.oy);
+        if (bounds) return bounds;
+      }
+
+      return null;
     }
 
     function readQRCodeFromCanvas(baseCanvas) {
@@ -732,8 +788,8 @@
       }
 
       for (const c of candidates) {
-        const data = tryDecodeQR(c);
-        if (data) return data;
+        const qr = tryDecodeQR(c);
+        if (qr) return qr.data;
       }
 
       return "QR not detected";
@@ -766,6 +822,23 @@
       const mm = m[2];
       const mer = m[3] ? ` ${m[3]}` : "";
       return `${hh}:${mm}${mer}`;
+    }
+
+    function timeToSerialDigits(rawTime) {
+      const t = normalizeTime(rawTime);
+      if (!t) return null;
+      const m = t.match(/^([0-2]\d):([0-5]\d)/);
+      if (!m) return null;
+      return `${m[1]}${m[2]}`;
+    }
+
+    function buildBlockedSerials(parsed) {
+      const blocked = new Set();
+      const fromTime = timeToSerialDigits(parsed && parsed.time ? parsed.time : "");
+      const fromCut = timeToSerialDigits(parsed && parsed.cut ? parsed.cut : "");
+      if (fromTime) blocked.add(fromTime);
+      if (fromCut) blocked.add(fromCut);
+      return blocked;
     }
 
     function normalizeOcrText(text) {
@@ -846,20 +919,7 @@
         cut = allTimes.length > 1 ? allTimes[1] : "Not found";
       }
 
-      const serialAfterCutCandidates = [];
       const serialLineCandidates = [];
-      const serialStripCandidates = [];
-      const serialAfterCut = singleLine.match(/\bCUTTING\s*TIME\b\s+([0-9Il|OoQq]{1,4})\s/i);
-      if (serialAfterCut) serialAfterCutCandidates.push(serialAfterCut[1]);
-
-      const tempForSerial = singleLine
-        .replace(/\bMFD\b/gi, "")
-        .replace(/\bCUTTING\s*TIME\b/gi, "")
-        .replace(/\bTIME\b/gi, "")
-        .replace(/\b[0-3]?\d[\/.-][0-1]?\d[\/.-]\d{2,4}\b/g, "")
-        .replace(/\b[0-2]?\d[:.][0-5]\d(?:\s*(?:AM|PM))?\b/gi, "");
-      const serialFromStrip = tempForSerial.match(/\b([0-9Il|OoQq]{1,4})\b/g) || [];
-      serialStripCandidates.push(...serialFromStrip);
 
       for (const line of lines) {
         const compact = line.replace(/\s+/g, "");
@@ -869,8 +929,6 @@
       }
 
       let serial = pickBestSerial(serialLineCandidates);
-      if (serial === "Not found") serial = pickBestSerial(serialAfterCutCandidates);
-      if (serial === "Not found") serial = pickBestSerial(serialStripCandidates);
       return { mfd, time, cut, serial };
     }
 
@@ -883,52 +941,104 @@
       return score;
     }
 
-    async function readDigitsOnly(region) {
+    async function readDigitsOnly(region, pageSegMode = 7) {
       const result = await Tesseract.recognize(region, "eng", {
         tessedit_char_whitelist: "0123456789Il|Oo",
-        tessedit_pageseg_mode: "7"
+        tessedit_pageseg_mode: String(pageSegMode)
       });
-      return result.data.text.trim();
+      return {
+        text: result.data.text.trim(),
+        confidence: Number(result.data.confidence) || 0
+      };
     }
 
-    async function extractSerialFromRegions(sourceCanvas) {
+    async function extractSerialFromRegions(sourceCanvas, qrBounds = null, blockedSerials = new Set()) {
       const w = sourceCanvas.width;
       const h = sourceCanvas.height;
+      const dynamicRegions = [];
+      if (qrBounds) {
+        dynamicRegions.push(
+          // serial box sits directly above the QR: keep crops tight to avoid reading TIME fields
+          { x: qrBounds.x + qrBounds.w * 0.02, y: qrBounds.y - qrBounds.h * 0.72, rw: qrBounds.w * 0.96, rh: qrBounds.h * 0.52 },
+          { x: qrBounds.x - qrBounds.w * 0.10, y: qrBounds.y - qrBounds.h * 0.85, rw: qrBounds.w * 1.20, rh: qrBounds.h * 0.62 },
+          { x: qrBounds.x + qrBounds.w * 0.08, y: qrBounds.y - qrBounds.h * 0.60, rw: qrBounds.w * 0.84, rh: qrBounds.h * 0.46 }
+        );
+      }
 
       const regions = [
-        // focused serial-box regions above the QR on right side
-        { x: w * 0.72, y: h * 0.12, rw: w * 0.26, rh: h * 0.24 },
-        { x: w * 0.68, y: h * 0.08, rw: w * 0.30, rh: h * 0.30 },
-        { x: w * 0.74, y: h * 0.16, rw: w * 0.22, rh: h * 0.22 },
-        // wider fallbacks for shifted photos
-        { x: w * 0.60, y: 0, rw: w * 0.40, rh: h * 0.45 },
-        { x: w * 0.55, y: 0, rw: w * 0.45, rh: h * 0.50 }
+        ...dynamicRegions,
+        // fixed fallbacks constrained to upper-right serial area only
+        { x: w * 0.73, y: h * 0.10, rw: w * 0.25, rh: h * 0.17 },
+        { x: w * 0.69, y: h * 0.08, rw: w * 0.30, rh: h * 0.20 },
+        { x: w * 0.66, y: h * 0.06, rw: w * 0.33, rh: h * 0.23 }
       ];
 
-      for (const r of regions) {
+      const scoreBySerial = new Map();
+      const countBySerial = new Map();
+      const dynamicHitSerials = new Set();
+      const addCandidate = (raw, confidence, regionIndex, psmMode) => {
+        const digits = sanitizeSerial(raw);
+        if (!digits) return;
+        if (blockedSerials.has(digits)) return;
+        const regionBoost = regionIndex < dynamicRegions.length ? 65 : 20;
+        const psmBoost = psmMode === 10 ? 20 : 8;
+        const lenBoost = digits.length <= 2 ? 6 : 0;
+        const score = regionBoost + psmBoost + lenBoost + Math.max(0, confidence);
+        scoreBySerial.set(digits, (scoreBySerial.get(digits) || 0) + score);
+        countBySerial.set(digits, (countBySerial.get(digits) || 0) + 1);
+        if (regionIndex < dynamicRegions.length) {
+          dynamicHitSerials.add(digits);
+        }
+      };
+
+      for (let i = 0; i < regions.length; i++) {
+        const r = regions[i];
         const crop = cropFrom(sourceCanvas, r.x, r.y, r.rw, r.rh);
         if (!crop) continue;
 
-        const variants = [
-          preprocessForOCR(scaleCanvas(crop, 3)),
-          preprocessForOCR(scaleCanvas(crop, 4))
-        ];
+        const scaled = scaleCanvas(crop, 3);
+        const variants = [scaled, preprocessForOCR(scaled)];
+        const innerCrop = cropFrom(crop, crop.width * 0.12, crop.height * 0.18, crop.width * 0.76, crop.height * 0.64);
+        if (innerCrop) {
+          const innerScaled = scaleCanvas(innerCrop, 3);
+          variants.push(innerScaled, preprocessForOCR(innerScaled));
+        }
 
         for (const processed of variants) {
-          const digitText = await readDigitsOnly(processed);
-          const digits = sanitizeSerial(digitText);
-          if (digits) return digits;
+          const singleChar = await readDigitsOnly(processed, 10);
+          addCandidate(singleChar.text, singleChar.confidence, i, 10);
 
-          const ocrText = await readText(processed);
-          const tokens = ocrText.match(/\b([0-9Il|OoQq]{1,4})\b/g) || [];
-          const parsed = pickBestSerial(tokens);
-          if (parsed !== "Not found") return parsed;
+          const singleLine = await readDigitsOnly(processed, 7);
+          addCandidate(singleLine.text, singleLine.confidence, i, 7);
         }
       }
-      return null;
+
+      let ranked = [...scoreBySerial.entries()].map(([serial, score]) => ({
+        serial,
+        score,
+        count: countBySerial.get(serial) || 0,
+        dynamic: dynamicHitSerials.has(serial)
+      }));
+
+      if (dynamicRegions.length > 0 && ranked.some(x => x.dynamic)) {
+        ranked = ranked.filter(x => x.dynamic);
+      }
+
+      ranked.sort((a, b) =>
+        Number(b.dynamic) - Number(a.dynamic) ||
+        b.count - a.count ||
+        b.score - a.score ||
+        a.serial.length - b.serial.length ||
+        a.serial.localeCompare(b.serial)
+      );
+
+      if (!ranked.length) return null;
+      const top = ranked[0];
+      if (top.count === 1 && top.score < 80) return null;
+      return top.serial;
     }
 
-    async function extractTextFields(sourceCanvas) {
+    async function extractTextFields(sourceCanvas, qrBounds = null) {
       let best = { mfd: "Not found", time: "Not found", cut: "Not found", serial: "Not found" };
       let bestScore = -1;
 
@@ -941,7 +1051,6 @@
           best = parsed;
           bestScore = score;
         }
-        if (score === 4) return best;
       }
 
       for (const deg of [90, 180, 270]) {
@@ -953,15 +1062,15 @@
           best = parsed;
           bestScore = score;
         }
-        if (score === 4) return best;
       }
 
-      // If serial is missing or suspiciously long, use dedicated region-based extraction
-      if (best.serial === "Not found" || best.serial.length > 4) {
-        const regionSerial = await extractSerialFromRegions(sourceCanvas);
-        if (regionSerial) {
-          best.serial = regionSerial;
-        }
+      const blockedSerials = buildBlockedSerials(best);
+      const regionSerial = await extractSerialFromRegions(sourceCanvas, qrBounds, blockedSerials);
+      if (regionSerial) {
+        best.serial = regionSerial;
+      } else {
+        const fallbackSerial = sanitizeSerial(best.serial);
+        best.serial = fallbackSerial && !blockedSerials.has(fallbackSerial) ? fallbackSerial : "Not found";
       }
 
       return best;
