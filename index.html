@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scanner</title>
+  <title>Sticker Reader</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -485,10 +485,11 @@
         releaseImageSource(imageSource);
 
         setStatus("Scanning QR...");
-        const qrData = readQRCodeFromCanvas(canvas);
+        const qrRes = readQRCodeFromCanvas(canvas);
+        const qrData = qrRes ? qrRes.qr.data : "";
+        const qrBounds = qrRes ? getQrBounds(qrRes.qr, qrRes.ox, qrRes.oy) : null;
 
         setStatus("Reading text...");
-        const qrBounds = detectQrBounds(canvas);
         const fields = await extractTextFields(canvas, qrBounds);
 
         resetFormFields();
@@ -496,7 +497,7 @@
         putIfFound(timeInput, fields.time);
         putIfFound(cuttingInput, fields.cut);
         putIfFound(serialInput, fields.serial);
-        putIfFound(batchInput, qrData === "QR not detected" ? "" : qrData);
+        putIfFound(batchInput, qrData);
 
         openFormStage();
       } catch (err) {
@@ -713,62 +714,29 @@
       };
     }
 
-    function detectQrBounds(baseCanvas) {
-      const scans = [
-        { canvas: baseCanvas, ox: 0, oy: 0 },
-        { canvas: preprocessForQR(baseCanvas), ox: 0, oy: 0 }
+    function readQRCodeFromCanvas(baseCanvas) {
+      const candidates = [
+        { fn: () => tryDecodeQR(baseCanvas), ox: 0, oy: 0 },
+        { fn: () => tryDecodeQR(scaleCanvas(baseCanvas, 1.5)), ox: 0, oy: 0 },
+        { fn: () => tryDecodeQR(preprocessForQR(baseCanvas)), ox: 0, oy: 0 },
+        {
+          fn: () => {
+            const sx = baseCanvas.width * 0.25, sy = baseCanvas.height * 0.25;
+            const crop = cropFrom(baseCanvas, sx, sy, baseCanvas.width * 0.5, baseCanvas.height * 0.5);
+            return crop ? tryDecodeQR(crop) : null;
+          }, ox: baseCanvas.width * 0.25, oy: baseCanvas.height * 0.25
+        }
       ];
-
-      const regionDefs = [
-        [0.42, 0.20, 0.58, 0.80],
-        [0.55, 0.25, 0.45, 0.75],
-        [0.62, 0.34, 0.38, 0.66],
-        [0.45, 0.35, 0.55, 0.65]
-      ];
-
-      for (const [x, y, w, h] of regionDefs) {
-        const sx = Math.floor(baseCanvas.width * x);
-        const sy = Math.floor(baseCanvas.height * y);
-        const sw = Math.floor(baseCanvas.width * w);
-        const sh = Math.floor(baseCanvas.height * h);
-        const crop = cropFrom(baseCanvas, sx, sy, sw, sh);
-        if (!crop) continue;
-        scans.push({ canvas: crop, ox: sx, oy: sy });
-        scans.push({ canvas: preprocessForQR(crop), ox: sx, oy: sy });
+      for (const c of candidates) {
+        const qr = c.fn();
+        if (qr) return { qr, ox: c.ox, oy: c.oy };
       }
-
-      for (const candidate of scans) {
-        const qr = tryDecodeQR(candidate.canvas);
-        const bounds = getQrBounds(qr, candidate.ox, candidate.oy);
-        if (bounds) return bounds;
-      }
-
       return null;
     }
 
-    function readQRCodeFromCanvas(baseCanvas) {
-      const tryCandidates = [
-        () => tryDecodeQR(baseCanvas), // 1. Original
-        () => tryDecodeQR(scaleCanvas(baseCanvas, 1.5)), // 2. Slight upscale
-        () => tryDecodeQR(preprocessForQR(baseCanvas)),   // 3. Pre-processed B&W
-        () => { // 4. Center Crop
-          const crop = cropFrom(baseCanvas, baseCanvas.width * 0.25, baseCanvas.height * 0.25, baseCanvas.width * 0.5, baseCanvas.height * 0.5);
-          return crop ? tryDecodeQR(crop) : null;
-        },
-        () => { // 5. Rotations
-          for (const deg of [90, 180, 270]) {
-            const res = tryDecodeQR(rotateCanvas(baseCanvas, deg));
-            if (res) return res;
-          }
-          return null;
-        }
-      ];
-
-      for (const fn of tryCandidates) {
-        const res = fn();
-        if (res) return res.data;
-      }
-      return "QR not detected";
+    function detectQrBounds(baseCanvas) {
+      const res = readQRCodeFromCanvas(baseCanvas);
+      return res ? getQrBounds(res.qr, res.ox, res.oy) : null;
     }
 
     async function readText(region) {
@@ -934,38 +902,11 @@
       const dynamicRegions = [];
       if (qrBounds) {
         dynamicRegions.push(
-          // serial box sits directly above the QR: keep crops tight to avoid reading TIME fields
           { x: qrBounds.x + qrBounds.w * 0.02, y: qrBounds.y - qrBounds.h * 0.72, rw: qrBounds.w * 0.96, rh: qrBounds.h * 0.52 },
-          { x: qrBounds.x - qrBounds.w * 0.10, y: qrBounds.y - qrBounds.h * 0.85, rw: qrBounds.w * 1.20, rh: qrBounds.h * 0.62 },
-          { x: qrBounds.x + qrBounds.w * 0.08, y: qrBounds.y - qrBounds.h * 0.60, rw: qrBounds.w * 0.84, rh: qrBounds.h * 0.46 }
+          { x: qrBounds.x - qrBounds.w * 0.10, y: qrBounds.y - qrBounds.h * 0.85, rw: qrBounds.w * 1.20, rh: qrBounds.h * 0.62 }
         );
       }
-
-      const regions = [
-        ...dynamicRegions,
-        // fixed fallbacks constrained to upper-right serial area only
-        { x: w * 0.73, y: h * 0.10, rw: w * 0.25, rh: h * 0.17 },
-        { x: w * 0.69, y: h * 0.08, rw: w * 0.30, rh: h * 0.20 },
-        { x: w * 0.66, y: h * 0.06, rw: w * 0.33, rh: h * 0.23 }
-      ];
-
-      const scoreBySerial = new Map();
-      const countBySerial = new Map();
-      const dynamicHitSerials = new Set();
-      const addCandidate = (raw, confidence, regionIndex, psmMode) => {
-        const digits = sanitizeSerial(raw);
-        if (!digits) return;
-        if (blockedSerials.has(digits)) return;
-        const regionBoost = regionIndex < dynamicRegions.length ? 65 : 20;
-        const psmBoost = psmMode === 10 ? 20 : 8;
-        const lenBoost = digits.length <= 2 ? 6 : 0;
-        const score = regionBoost + psmBoost + lenBoost + Math.max(0, confidence);
-        scoreBySerial.set(digits, (scoreBySerial.get(digits) || 0) + score);
-        countBySerial.set(digits, (countBySerial.get(digits) || 0) + 1);
-        if (regionIndex < dynamicRegions.length) {
-          dynamicHitSerials.add(digits);
-        }
-      };
+      const regions = [...dynamicRegions, { x: w * 0.73, y: h * 0.10, rw: w * 0.25, rh: h * 0.17 }];
 
       for (let i = 0; i < regions.length; i++) {
         const r = regions[i];
@@ -973,73 +914,50 @@
         if (!crop) continue;
 
         const scaled = scaleCanvas(crop, 3);
-        const variants = [scaled, preprocessForOCR(scaled)];
-        const innerCrop = cropFrom(crop, crop.width * 0.12, crop.height * 0.18, crop.width * 0.76, crop.height * 0.64);
-        if (innerCrop) {
-          const innerScaled = scaleCanvas(innerCrop, 3);
-          variants.push(innerScaled, preprocessForOCR(innerScaled));
-        }
+        const variants = [preprocessForOCR(scaled), scaled];
 
         for (const processed of variants) {
-          const singleChar = await readDigitsOnly(processed, 10);
-          addCandidate(singleChar.text, singleChar.confidence, i, 10);
-
-          const singleLine = await readDigitsOnly(processed, 7);
-          addCandidate(singleLine.text, singleLine.confidence, i, 7);
+          const res = await readDigitsOnly(processed, 7);
+          const digits = sanitizeSerial(res.text);
+          if (digits && !blockedSerials.has(digits)) {
+            if (res.confidence > 85) return digits;
+          }
         }
       }
-
-      let ranked = [...scoreBySerial.entries()].map(([serial, score]) => ({
-        serial,
-        score,
-        count: countBySerial.get(serial) || 0,
-        dynamic: dynamicHitSerials.has(serial)
-      }));
-
-      if (dynamicRegions.length > 0 && ranked.some(x => x.dynamic)) {
-        ranked = ranked.filter(x => x.dynamic);
-      }
-
-      ranked.sort((a, b) =>
-        Number(b.dynamic) - Number(a.dynamic) ||
-        b.count - a.count ||
-        b.score - a.score ||
-        a.serial.length - b.serial.length ||
-        a.serial.localeCompare(b.serial)
-      );
-
-      if (!ranked.length) return null;
-      const top = ranked[0];
-      if (top.count === 1 && top.score < 80) return null;
-      return top.serial;
+      return null;
     }
 
     async function extractTextFields(sourceCanvas, qrBounds = null) {
       let best = { mfd: "Not found", time: "Not found", cut: "Not found", serial: "Not found" };
       let bestScore = -1;
 
-      const primaryCandidates = [sourceCanvas, preprocessForOCR(sourceCanvas)];
-      for (const candidate of primaryCandidates) {
-        const text = await readText(candidate);
+      // Try candidates sequentially. Stop if score is >= 3 (Good enough for mobile speed)
+      const tryOcr = async (canvas) => {
+        const text = await readText(canvas);
         const parsed = parseStickerText(text);
         const score = parseScore(parsed);
         if (score > bestScore) {
           best = parsed;
           bestScore = score;
         }
-      }
+        return score;
+      };
 
-      for (const deg of [90, 180, 270]) {
-        const rotated = rotateCanvas(sourceCanvas, deg);
-        const text = await readText(preprocessForOCR(rotated));
-        const parsed = parseStickerText(text);
-        const score = parseScore(parsed);
-        if (score > bestScore) {
-          best = parsed;
-          bestScore = score;
+      // Pass 1: Original
+      if (await tryOcr(sourceCanvas) >= 3) return best;
+
+      // Pass 2: Pre-processed
+      if (await tryOcr(preprocessForOCR(sourceCanvas)) >= 3) return best;
+
+      // Pass 3: Rotations (only if still poor)
+      if (bestScore < 2) {
+        for (const deg of [90, 180, 270]) {
+          const rotated = rotateCanvas(sourceCanvas, deg);
+          if (await tryOcr(preprocessForOCR(rotated)) >= 3) return best;
         }
       }
 
+      // Final Serial Region extraction (Targeted)
       const blockedSerials = buildBlockedSerials(best);
       const regionSerial = await extractSerialFromRegions(sourceCanvas, qrBounds, blockedSerials);
       if (regionSerial) {
