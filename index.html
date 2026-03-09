@@ -7,6 +7,7 @@
   <title>Sticker Reader</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="shortcut icon" href="/Asset/logo.png" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
 
@@ -27,7 +28,9 @@
       --shadow: 0 8px 20px rgba(22, 56, 94, .14);
     }
 
-    * { box-sizing: border-box }
+    * {
+      box-sizing: border-box
+    }
 
     body {
       margin: 0;
@@ -86,11 +89,13 @@
       padding: 14px;
     }
 
-    .hidden { display: none !important; }
+    .hidden {
+      display: none !important;
+    }
 
     /* ── Start panel ── */
     .start {
-      min-height: 320px;
+      min-height: 150px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -113,8 +118,14 @@
       box-shadow: 0 10px 22px rgba(30, 111, 217, .25);
     }
 
-    .scan-btn:disabled { opacity: .65; cursor: not-allowed }
-    .scan-btn:hover:not(:disabled) { background: var(--accent-dark) }
+    .scan-btn:disabled {
+      opacity: .65;
+      cursor: not-allowed
+    }
+
+    .scan-btn:hover:not(:disabled) {
+      background: var(--accent-dark)
+    }
 
     .help {
       margin: 0;
@@ -175,10 +186,33 @@
       border-style: solid;
     }
 
-    .scan-frame::before  { top: 0;    left: 0;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    .scan-frame::after   { top: 0;    right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    .scan-frame .corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-    .scan-frame .corner-bl { bottom: 0; left: 0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+    .scan-frame::before {
+      top: 0;
+      left: 0;
+      border-width: 3px 0 0 3px;
+      border-radius: 4px 0 0 0;
+    }
+
+    .scan-frame::after {
+      top: 0;
+      right: 0;
+      border-width: 3px 3px 0 0;
+      border-radius: 0 4px 0 0;
+    }
+
+    .scan-frame .corner-br {
+      bottom: 0;
+      right: 0;
+      border-width: 0 3px 3px 0;
+      border-radius: 0 0 4px 0;
+    }
+
+    .scan-frame .corner-bl {
+      bottom: 0;
+      left: 0;
+      border-width: 0 0 3px 3px;
+      border-radius: 0 0 0 4px;
+    }
 
     /* Animated scan line */
     .scan-line {
@@ -193,10 +227,24 @@
     }
 
     @keyframes scanMove {
-      0%   { top: 6px;   opacity: 1; }
-      50%  { opacity: 1; }
-      95%  { top: calc(100% - 8px); opacity: 1; }
-      100% { top: calc(100% - 8px); opacity: 0; }
+      0% {
+        top: 6px;
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      95% {
+        top: calc(100% - 8px);
+        opacity: 1;
+      }
+
+      100% {
+        top: calc(100% - 8px);
+        opacity: 0;
+      }
     }
 
     /* Pulse ring on QR detect */
@@ -210,8 +258,15 @@
     }
 
     @keyframes ringPulse {
-      from { opacity: 1; transform: scale(0.96); }
-      to   { opacity: 0; transform: scale(1.02); }
+      from {
+        opacity: 1;
+        transform: scale(0.96);
+      }
+
+      to {
+        opacity: 0;
+        transform: scale(1.02);
+      }
     }
 
     /* Loading spinner overlay (for OCR) */
@@ -231,14 +286,16 @@
     .spinner {
       width: 44px;
       height: 44px;
-      border: 4px solid rgba(255,255,255,0.2);
+      border: 4px solid rgba(255, 255, 255, 0.2);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .loading-label {
@@ -295,8 +352,17 @@
     }
 
     @keyframes dotPulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.4; transform: scale(0.7); }
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.7);
+      }
     }
 
     .cam-cancel-btn {
@@ -312,7 +378,9 @@
       color: #123a67;
     }
 
-    .cam-cancel-btn:hover { background: #e2ecff; }
+    .cam-cancel-btn:hover {
+      background: #e2ecff;
+    }
 
     /* ── Form panel ── */
     .preview-wrap {
@@ -386,7 +454,10 @@
       cursor: pointer;
     }
 
-    .btn:disabled { opacity: .65; cursor: not-allowed }
+    .btn:disabled {
+      opacity: .65;
+      cursor: not-allowed
+    }
 
     .btn-primary {
       border: none;
@@ -394,7 +465,9 @@
       color: #fff;
     }
 
-    .btn-primary:hover:not(:disabled) { filter: brightness(.95) }
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(.95)
+    }
 
     .btn-secondary {
       border: 1px solid var(--line);
@@ -409,11 +482,106 @@
       font-weight: 700;
     }
 
-    .ok  { color: var(--ok) }
-    .err { color: var(--danger) }
+    .ok {
+      color: var(--ok)
+    }
+
+    .err {
+      color: var(--danger)
+    }
 
     @media (min-width: 700px) {
-      .grid { grid-template-columns: 1fr 1fr }
+      .grid {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
+    /* ── Recent Scans Table ── */
+    .table-card {
+      margin-top: 12px;
+    }
+
+    .table-card h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #123a67;
+    }
+
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+
+    .scanned-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 500px;
+    }
+
+    .scanned-table th {
+      background: #f8fbff;
+      text-align: left;
+      padding: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 2px solid var(--line);
+    }
+
+    .scanned-table td {
+      padding: 12px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--ink);
+    }
+
+    .scanned-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .pill.done {
+      background: #f0fdf4;
+      color: #14532d;
+    }
+
+    .pill.late {
+      background: #fff1f2;
+      color: #7f1d1d;
+    }
+
+    .pill.warn {
+      background: #fefce8;
+      color: #713f12;
+    }
+
+    .pill.idle {
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+
+    .refresh-pulse {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--ok);
+      border-radius: 50%;
+      margin-right: 4px;
+      animation: dotPulse 1.5s infinite;
     }
   </style>
 </head>
@@ -454,9 +622,15 @@
 
       <!-- Step pills -->
       <div class="scan-steps">
-        <div class="step-pill active" id="step1"><div class="step-dot"></div>Scanning QR</div>
-        <div class="step-pill" id="step2"><div class="step-dot"></div>Reading Text</div>
-        <div class="step-pill" id="step3"><div class="step-dot"></div>Done</div>
+        <div class="step-pill active" id="step1">
+          <div class="step-dot"></div>Scanning QR
+        </div>
+        <div class="step-pill" id="step2">
+          <div class="step-dot"></div>Reading Text
+        </div>
+        <div class="step-pill" id="step3">
+          <div class="step-dot"></div>Done
+        </div>
       </div>
 
       <button id="cancelBtn" class="cam-cancel-btn" type="button">Cancel</button>
@@ -493,6 +667,33 @@
       <div id="saveMessage" class="message"></div>
     </section>
 
+    <!-- ── RECENT SCANS TABLE ── -->
+    <section id="tablePanel" class="panel table-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2 style="margin:0;">Recent Scans</h2>
+        <div id="tableStatus" style="font-size:12px; font-weight:700; color:var(--muted);">
+          <span class="refresh-pulse"></span>Updating...
+        </div>
+      </div>
+      <div class="table-container">
+        <table class="scanned-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Batch</th>
+              <th>Serial</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="scanTableBody">
+            <tr>
+              <td colspan="4" class="empty" style="text-align:center; padding:30px;">Loading scanner history...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <canvas id="canvas" class="hidden"></canvas>
   </main>
 
@@ -508,38 +709,40 @@
     /* ══════════════════════════════════════════════════
        DOM REFS
     ══════════════════════════════════════════════════ */
-    const statusEl       = document.getElementById("status");
-    const startPanel     = document.getElementById("startPanel");
-    const cameraPanel    = document.getElementById("cameraPanel");
-    const formPanel      = document.getElementById("formPanel");
-    const cameraVideo    = document.getElementById("cameraVideo");
-    const cameraWrap     = document.getElementById("cameraWrap");
-    const scanOverlay    = document.getElementById("scanOverlay");
+    const statusEl = document.getElementById("status");
+    const startPanel = document.getElementById("startPanel");
+    const cameraPanel = document.getElementById("cameraPanel");
+    const formPanel = document.getElementById("formPanel");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const cameraWrap = document.getElementById("cameraWrap");
+    const scanOverlay = document.getElementById("scanOverlay");
     const loadingOverlay = document.getElementById("loadingOverlay");
-    const loadingLabel   = document.getElementById("loadingLabel");
-    const scanLine       = document.getElementById("scanLine");
-    const step1          = document.getElementById("step1");
-    const step2          = document.getElementById("step2");
-    const step3          = document.getElementById("step3");
-    const scanBtn        = document.getElementById("scanBtn");
-    const cancelBtn      = document.getElementById("cancelBtn");
-    const previewImage   = document.getElementById("previewImage");
-    const cuttingInput   = document.getElementById("cuttingInput");
-    const batchInput     = document.getElementById("batchInput");
-    const serialInput    = document.getElementById("serialInput");
-    const saveBtn        = document.getElementById("saveBtn");
-    const rescanBtn      = document.getElementById("rescanBtn");
-    const saveMessageEl  = document.getElementById("saveMessage");
-    const canvas         = document.getElementById("canvas");
-    const ctx            = canvas.getContext("2d");
+    const loadingLabel = document.getElementById("loadingLabel");
+    const scanLine = document.getElementById("scanLine");
+    const step1 = document.getElementById("step1");
+    const step2 = document.getElementById("step2");
+    const step3 = document.getElementById("step3");
+    const scanBtn = document.getElementById("scanBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const previewImage = document.getElementById("previewImage");
+    const cuttingInput = document.getElementById("cuttingInput");
+    const batchInput = document.getElementById("batchInput");
+    const serialInput = document.getElementById("serialInput");
+    const saveBtn = document.getElementById("saveBtn");
+    const rescanBtn = document.getElementById("rescanBtn");
+    const saveMessageEl = document.getElementById("saveMessage");
+    const scanTableBody = document.getElementById("scanTableBody");
+    const tableStatus = document.getElementById("tableStatus");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
 
     /* ══════════════════════════════════════════════════
        STATE
     ══════════════════════════════════════════════════ */
-    let mediaStream     = null;
-    let scanLoopId      = null;
-    let scanActive      = false;
-    let qrFoundRingEl   = null;
+    let mediaStream = null;
+    let scanLoopId = null;
+    let scanActive = false;
+    let qrFoundRingEl = null;
 
     /* ══════════════════════════════════════════════════
        HELPERS
@@ -558,8 +761,8 @@
 
     function resetFormFields() {
       cuttingInput.value = "";
-      batchInput.value   = "";
-      serialInput.value  = "";
+      batchInput.value = "";
+      serialInput.value = "";
       document.querySelectorAll(".hint").forEach(h => h.textContent = "");
       clearSaveMessage();
     }
@@ -567,7 +770,7 @@
     function setStep(n) {
       [step1, step2, step3].forEach((el, i) => {
         el.classList.remove("active", "done");
-        if (i + 1 < n)  el.classList.add("done");
+        if (i + 1 < n) el.classList.add("done");
         if (i + 1 === n) el.classList.add("active");
       });
     }
@@ -644,7 +847,7 @@
         }
 
         // Draw current frame to canvas
-        canvas.width  = cameraVideo.videoWidth;
+        canvas.width = cameraVideo.videoWidth;
         canvas.height = cameraVideo.videoHeight;
         ctx.drawImage(cameraVideo, 0, 0);
 
@@ -688,12 +891,12 @@
         loadingLabel.textContent = "Parsing fields…";
 
         let cuttingTime = "";
-        let serial      = "";
+        let serial = "";
 
         if (ocrText) {
           const parsed = parseOcrText(ocrText);
           cuttingTime = parsed.cuttingTime;
-          serial      = parsed.serial;
+          serial = parsed.serial;
         }
 
         setStep(3);
@@ -704,13 +907,13 @@
         await delay(400);
 
         resetFormFields();
-        batchInput.value   = qrData;
+        batchInput.value = qrData;
         cuttingInput.value = cuttingTime;
-        serialInput.value  = serial;
+        serialInput.value = serial;
 
-        batchInput.nextElementSibling.textContent   = qrData ? "QR detected." : "";
+        batchInput.nextElementSibling.textContent = qrData ? "QR detected." : "";
         cuttingInput.nextElementSibling.textContent = cuttingTime ? "OCR extracted." : "Not found — please enter manually.";
-        serialInput.nextElementSibling.textContent  = serial      ? "OCR extracted." : "Not found — please enter manually.";
+        serialInput.nextElementSibling.textContent = serial ? "OCR extracted." : "Not found — please enter manually.";
 
         openFormStage();
       } catch (err) {
@@ -743,11 +946,11 @@
       const base64Image = sourceCanvas.toDataURL("image/jpeg", 0.85);
 
       const formData = new FormData();
-      formData.append("apikey",      CONFIG.OCR_API_KEY);
+      formData.append("apikey", CONFIG.OCR_API_KEY);
       formData.append("base64Image", base64Image);
-      formData.append("language",    "eng");
-      formData.append("isTable",     "true");
-      formData.append("OCREngine",   "2");
+      formData.append("language", "eng");
+      formData.append("isTable", "true");
+      formData.append("OCREngine", "2");
 
       const response = await fetch("https://api.ocr.space/parse/image", {
         method: "POST",
@@ -769,7 +972,7 @@
     function parseOcrText(fullText) {
       const lines = fullText.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
       let cuttingTime = "";
-      let serial      = "";
+      let serial = "";
 
       // Serial Number
       const snoIdx = lines.findIndex(l => /(?:S\.?no|Serial)/i.test(l));
@@ -808,17 +1011,100 @@
       return { cuttingTime, serial };
     }
 
+    /* ── Shared Status Helpers ── */
+    function getCardStatus(r) {
+      if (toBoolean(r.isCompleted)) return "done";
+      const m = (r.cuttingTime || "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!m) return "idle";
+      const now = new Date();
+      let h = parseInt(m[1], 10); const min = parseInt(m[2], 10), mer = (m[3] || "").toUpperCase();
+      if (mer === "AM") { if (h === 12) h = 0; } else if (mer === "PM") { if (h !== 12) h += 12; }
+      const cut = new Date(now); cut.setHours(h, min, 0, 0);
+      const diff = (cut - now) / 60000;
+      if (diff < 0) return "late";
+      if (diff <= 5) return "warn";
+      return "idle";
+    }
+    function statusLabel(s) { return { done: "Completed", late: "Overdue", warn: "Waiting", idle: "Upcoming" }[s] || "Upcoming"; }
+    function toBoolean(v) {
+      const s = String(v == null ? "" : v).trim().toLowerCase();
+      return s === "true" || s === "1" || s === "yes" || s === "completed";
+    }
+    function normalizeTime(value) {
+      const s = String(value || "").trim().toUpperCase().replace(/\./g, ":");
+      if (!s) return "-";
+      const m = s.match(/([0-2]?\d)\s*:\s*([0-5]\d)\s*(AM|PM)?/);
+      if (m) {
+        let hh = Number(m[1]); const mm = m[2], mer = m[3];
+        if (mer) { hh = hh % 12; if (mer === "PM") hh += 12; }
+        const h12 = ((hh + 11) % 12) + 1;
+        return String(h12).padStart(2, "0") + ":" + mm + " " + (hh >= 12 ? "PM" : "AM");
+      }
+      return s;
+    }
+
+    /* ══════════════════════════════════════════════════
+       DATA FETCHING & RENDERING
+    ══════════════════════════════════════════════════ */
+    let lastFetchedData = [];
+
+    async function loadScannedData(silent = false) {
+      if (!silent) tableStatus.innerHTML = '<span class="refresh-pulse"></span>Updating...';
+      try {
+        const url = CONFIG.SCRIPT_URL + "?action=rows";
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.ok === false) throw new Error(data.error);
+
+        // Normalize and sort (newest first)
+        lastFetchedData = (data.rows || []).map((r, i) => ({
+          ...r,
+          rowNumber: Number(r.rowNumber || i + 2),
+          cuttingTime: normalizeTime(r.cuttingTime)
+        })).reverse();
+
+        renderScannedTable();
+        tableStatus.innerHTML = '<i class="bi bi-clock-history"></i> Updated just now';
+      } catch (err) {
+        console.error("Fetch history failed:", err);
+        if (!silent) tableStatus.textContent = "Sync failed";
+      }
+    }
+
+    function renderScannedTable() {
+      if (!lastFetchedData.length) {
+        scanTableBody.innerHTML = '<tr><td colspan="4" class="empty" style="text-align:center; padding:30px;">No records found.</td></tr>';
+        return;
+      }
+
+      scanTableBody.innerHTML = lastFetchedData.slice(0, 50).map(r => {
+        const status = getCardStatus(r);
+        return `
+          <tr>
+            <td><strong>${r.cuttingTime || "-"}</strong></td>
+            <td>${r.batch || "-"}</td>
+            <td>${r.serial || "-"}</td>
+            <td><span class="pill ${status}">${statusLabel(status)}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function startAutoRefresh() {
+      setInterval(() => loadScannedData(true), 20000);
+    }
+
     /* ══════════════════════════════════════════════════
        SAVE TO GOOGLE SHEETS
     ══════════════════════════════════════════════════ */
     function validatePayload() {
       const payload = {
         cuttingTime: cuttingInput.value.trim(),
-        batch:       batchInput.value.trim(),
-        serial:      serialInput.value.trim()
+        batch: batchInput.value.trim(),
+        serial: serialInput.value.trim()
       };
       if (!payload.serial) throw new Error("S.no is required.");
-      if (!payload.batch)  throw new Error("QR data is required.");
+      if (!payload.batch) throw new Error("QR data is required.");
       return payload;
     }
 
@@ -854,6 +1140,7 @@
 
         setSaveMessage("Saved successfully.", false);
         setStatus("Saved. You can re-scan next label.");
+        loadScannedData(true);
       } catch (err) {
         setStatus("Save failed");
         setSaveMessage("Save failed: " + (err.message || "Unknown error"), true);
@@ -886,6 +1173,9 @@
 
     /* ── INIT ── */
     openStartStage();
+    loadScannedData();
+    startAutoRefresh();
   </script>
 </body>
+
 </html>
