@@ -974,17 +974,20 @@
       const optimizedCanvas = buildOptimizedOcrCanvas(sourceCanvas);
       const imageFile = await canvasToJpegFile(optimizedCanvas, 0.72);
 
-      const maxAttempts = 3;
+      const maxAttempts = 4;
       let lastError = "";
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const engine = attempt <= 2 ? "1" : "2";
         const formData = new FormData();
         formData.append("apikey", CONFIG.OCR_API_KEY);
         formData.append("file", imageFile);
         formData.append("language", "eng");
         formData.append("isTable", "false");
-        formData.append("OCREngine", "2");
+        formData.append("OCREngine", engine);
         formData.append("scale", "true");
+        formData.append("detectOrientation", "true");
+        formData.append("filetype", "JPG");
 
         const response = await fetch("https://api.ocr.space/parse/image", {
           method: "POST",
@@ -994,7 +997,7 @@
         const result = await response.json();
         console.log("OCR.space result:", result);
 
-        if (result.OCRExitCode === 1 && result.ParsedResults && result.ParsedResults.length > 0) {
+        if ((result.OCRExitCode === 1 || result.OCRExitCode === 2) && result.ParsedResults && result.ParsedResults.length > 0) {
           return result.ParsedResults[0].ParsedText || "";
         }
 
@@ -1002,7 +1005,7 @@
         lastError = errorText || `OCRExitCode ${result.OCRExitCode}`;
         const isTimeout = result.OCRExitCode === 6 || /timed out/i.test(lastError);
         if (!isTimeout || attempt === maxAttempts) break;
-        await delay(450 * attempt);
+        await delay(700 * attempt);
       }
 
       throw new Error(lastError || "OCR processing failed.");
