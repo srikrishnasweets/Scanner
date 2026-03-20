@@ -1018,15 +1018,23 @@
       const lines = fullText.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
       let cuttingTime = "";
       let serial = "";
+      const serialLabelRe = /(?:\bS\s*\.?\s*NO\b|\bSNO\b|\bSERIAL(?:\s*NO)?\b)/i;
+      const serialValueRe = /(?:\bS\s*\.?\s*NO\b|\bSNO\b|\bSERIAL(?:\s*NO)?\b)\s*[:.\-]?\s*(\d{1,})/i;
+      const timeRe = /\d{1,2}:\d{2}\s*(AM|PM|A\.?M\.?|P\.?M\.?|AIM|PIM)?/i;
+      const normalizeMeridiem = (v) => String(v || "")
+        .toUpperCase()
+        .replace(/A\.?M\.?|AIM/g, "AM")
+        .replace(/P\.?M\.?|PIM/g, "PM")
+        .trim();
 
       // Serial Number
-      const snoIdx = lines.findIndex(l => /(?:S\.?no|Serial)/i.test(l));
+      const snoIdx = lines.findIndex(l => serialLabelRe.test(l));
       if (snoIdx !== -1) {
-        const match = lines[snoIdx].match(/(?:S\.?no|Serial):?\s*(\d+)/i);
+        const match = lines[snoIdx].match(serialValueRe);
         if (match) {
           serial = match[1];
         } else if (snoIdx + 1 < lines.length) {
-          const nextMatch = lines[snoIdx + 1].match(/^(\d+)$/);
+          const nextMatch = lines[snoIdx + 1].match(/(\d{1,})/);
           if (nextMatch) serial = nextMatch[1];
         }
       }
@@ -1034,23 +1042,34 @@
       // Cutting Time
       const ctIdx = lines.findIndex(l => /cutting\s*time/i.test(l));
       if (ctIdx !== -1) {
-        const matchSameLine = lines[ctIdx].match(/\d{1,2}:\d{2}\s*(AM|PM)?/i);
+        const matchSameLine = lines[ctIdx].match(timeRe);
         if (matchSameLine) {
-          cuttingTime = matchSameLine[0].toUpperCase();
+          const timeOnly = matchSameLine[0].match(/\d{1,2}:\d{2}/);
+          const mer = normalizeMeridiem(matchSameLine[1]);
+          cuttingTime = ((timeOnly ? timeOnly[0] : "") + (mer ? " " + mer : "")).trim();
         } else if (ctIdx + 1 < lines.length) {
-          const matchNext = lines[ctIdx + 1].match(/\d{1,2}:\d{2}\s*(AM|PM)?/i);
-          if (matchNext) cuttingTime = matchNext[0].toUpperCase();
+          const matchNext = lines[ctIdx + 1].match(timeRe);
+          if (matchNext) {
+            const timeOnly = matchNext[0].match(/\d{1,2}:\d{2}/);
+            const mer = normalizeMeridiem(matchNext[1]);
+            cuttingTime = ((timeOnly ? timeOnly[0] : "") + (mer ? " " + mer : "")).trim();
+          }
         }
       }
 
       // Broad fallbacks
       if (!serial) {
-        const broadSno = fullText.match(/(?:S\.?no|Serial):?\s*(\d+)/i);
+        const broadSno = fullText.match(serialValueRe);
         if (broadSno) serial = broadSno[1];
       }
       if (!cuttingTime) {
-        const times = fullText.match(/\d{1,2}:\d{2}\s*(AM|PM)?/gi) || [];
-        if (times.length > 0) cuttingTime = times[times.length - 1].toUpperCase();
+        const times = [...fullText.matchAll(/\d{1,2}:\d{2}\s*(AM|PM|A\.?M\.?|P\.?M\.?|AIM|PIM)?/gi)];
+        if (times.length > 0) {
+          const picked = times[times.length - 1];
+          const timeOnly = (picked[0].match(/\d{1,2}:\d{2}/) || [""])[0];
+          const mer = normalizeMeridiem(picked[1]);
+          cuttingTime = ((timeOnly || "") + (mer ? " " + mer : "")).trim();
+        }
       }
 
       return { cuttingTime, serial };
