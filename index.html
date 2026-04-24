@@ -428,7 +428,7 @@
     <!-- ── START PANEL ── -->
     <section id="startPanel" class="panel start">
       <button id="scanBtn" class="scan-btn" type="button">Scan Label</button>
-      <p class="help">Tap scan to open the camera. QR code are detected automatically.</p>
+      <p class="help">Tap scan to open the camera. QR codes are detected automatically.</p>
     </section>
 
     <!-- ── CAMERA PANEL ── -->
@@ -540,6 +540,7 @@
     let scanLoopId      = null;
     let scanActive      = false;
     let qrFoundRingEl   = null;
+    let lastCuttingTime = localStorage.getItem("lastCuttingTime") || "";
 
     /* ══════════════════════════════════════════════════
        HELPERS
@@ -554,6 +555,16 @@
     function clearSaveMessage() {
       saveMessageEl.textContent = "";
       saveMessageEl.className = "message";
+    }
+
+    function rememberCuttingTime(value) {
+      const normalized = (value || "").trim();
+      lastCuttingTime = normalized;
+      if (normalized) {
+        localStorage.setItem("lastCuttingTime", normalized);
+      } else {
+        localStorage.removeItem("lastCuttingTime");
+      }
     }
 
     function resetFormFields() {
@@ -707,6 +718,7 @@
         batchInput.value   = qrData;
         cuttingInput.value = cuttingTime;
         serialInput.value  = serial;
+        if (cuttingTime) rememberCuttingTime(cuttingTime);
 
         batchInput.nextElementSibling.textContent   = qrData ? "QR detected." : "";
         cuttingInput.nextElementSibling.textContent = cuttingTime ? "OCR extracted." : "Not found — please enter manually.";
@@ -721,6 +733,12 @@
         // Still show form with whatever we have
         resetFormFields();
         batchInput.value = qrData;
+        if (lastCuttingTime) {
+          cuttingInput.value = lastCuttingTime;
+          cuttingInput.nextElementSibling.textContent = "Using previously entered cutting time.";
+        } else {
+          cuttingInput.nextElementSibling.textContent = "Not found - please enter manually.";
+        }
         openFormStage();
         setSaveMessage(msg, true);
       }
@@ -833,6 +851,7 @@
       let payload;
       try { payload = validatePayload(); }
       catch (err) { setSaveMessage(err.message, true); return; }
+      rememberCuttingTime(payload.cuttingTime);
 
       saveBtn.disabled = true;
       setStatus("Saving to sheet…");
@@ -875,6 +894,10 @@
     });
 
     saveBtn.addEventListener("click", saveToSheet);
+
+    cuttingInput.addEventListener("change", () => {
+      rememberCuttingTime(cuttingInput.value);
+    });
 
     rescanBtn.addEventListener("click", () => {
       resetFormFields();
